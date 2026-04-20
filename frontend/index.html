@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document Parser Dashboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink:        #0f1923;
+  --ink-md:     #2d3f50;
+  --ink-lt:     #5a7184;
+  --ink-xlt:    #8fa5b8;
+  --paper:      #f5f7f9;
+  --paper-dark: #eaeef2;
+  --white:      #ffffff;
+  --accent:     #1a6ef5;
+  --accent-dk:  #1258cc;
+  --accent-lt:  #e8f0fe;
+  --accent-b:   #b8d0fc;
+  --green:      #0d7a55;
+  --green-lt:   #d4f5e9;
+  --amber:      #a05c00;
+  --amber-lt:   #fff0cc;
+  --red:        #c0210f;
+  --red-lt:     #fdecea;
+  --purple:     #5b35c8;
+  --purple-lt:  #ede9fb;
+  --border:     #dde3ea;
+  --shadow-sm:  0 1px 3px rgba(15,25,35,.08);
+  --shadow:     0 2px 10px rgba(15,25,35,.10);
+  --shadow-lg:  0 8px 30px rgba(15,25,35,.14);
+  --r:          8px;
+  --font:       'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --mono:       'JetBrains Mono', 'Fira Code', monospace;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+body {
+  font-family: var(--font);
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+.hdr {
+  background: var(--ink);
+  color: #fff;
+  padding: 0 24px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 300;
+  box-shadow: 0 2px 16px rgba(0,0,0,.3);
+}
+.hdr-l { display: flex; align-items: center; gap: 14px; }
+.logo {
+  width: 34px; height: 34px;
+  background: var(--accent);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 700; flex-shrink: 0;
+  letter-spacing: -.02em;
+}
+.hdr-title  { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.hdr-sub    { font-size: 11px; opacity: .5; margin-top: 1px; }
+.hdr-r      { display: flex; align-items: center; gap: 10px; }
+.api-status {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: rgba(255,255,255,.6);
+}
+.api-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #4ade80; flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(74,222,128,.2);
+}
+.api-dot.off { background: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,.2); }
+.btn-upload-hdr {
+  background: var(--accent);
+  border: none;
+  color: #fff; padding: 7px 16px; border-radius: 6px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  font-family: var(--font); transition: background .15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-upload-hdr:hover { background: var(--accent-dk); }
+.hdr-count {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 20px; padding: 4px 13px;
+  font-size: 12px; font-weight: 500;
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: calc(100vh - 58px);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  height: calc(100vh - 58px);
+  position: sticky;
+  top: 58px;
+}
+
+.sidebar-section { display: flex; flex-direction: column; gap: 8px; }
+.sidebar-label {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--ink-xlt);
+  padding: 0 4px;
+}
+
+/* ── Stats cards ─────────────────────────────────────────────────────── */
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat-card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px;
+}
+.stat-val  { font-size: 22px; font-weight: 700; color: var(--ink); letter-spacing: -.02em; }
+.stat-lbl  { font-size: 11px; color: var(--ink-lt); margin-top: 2px; }
+.stat-card.accent { background: var(--accent-lt); border-color: var(--accent-b); }
+.stat-card.accent .stat-val { color: var(--accent); }
+
+/* ── Upload zone ─────────────────────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--r);
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--accent-lt); }
+.upload-icon { font-size: 24px; margin-bottom: 8px; }
+.upload-text { font-size: 13px; color: var(--ink-md); font-weight: 500; }
+.upload-hint { font-size: 11px; color: var(--ink-lt); margin-top: 4px; }
+
+/* ── Source list ─────────────────────────────────────────────────────── */
+.source-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.source-item:hover { border-color: var(--accent-b); background: var(--accent-lt); }
+.source-item.active { border-color: var(--accent); background: var(--accent-lt); }
+.source-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent);
+}
+.source-name { font-size: 12px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-count { font-size: 11px; color: var(--ink-lt); flex-shrink: 0; }
+.source-rm { background: none; border: none; cursor: pointer; color: var(--ink-xlt); padding: 2px 4px; border-radius: 4px; font-size: 14px; transition: color .15s; }
+.source-rm:hover { color: var(--red); }
+
+/* ── Upload progress ──────────────────────────────────────────────────── */
+.upload-progress {
+  padding: 10px 12px;
+  border-radius: var(--r);
+  background: var(--accent-lt);
+  border: 1px solid var(--accent-b);
+  font-size: 12px; color: var(--accent);
+  display: none;
+}
+.upload-progress.show { display: block; }
+.progress-bar { height: 3px; background: var(--accent-b); border-radius: 99px; margin-top: 8px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 99px; animation: progress-pulse 1.4s ease-in-out infinite; }
+@keyframes progress-pulse { 0%,100% { width: 30%; margin-left: 0; } 50% { width: 60%; margin-left: 30%; } }
+
+/* ── Main area ───────────────────────────────────────────────────────── */
+.main { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+/* ── Search panel ────────────────────────────────────────────────────── */
+.search-panel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.search-panel-title {
+  font-size: 13px; font-weight: 600; color: var(--ink-md);
+  margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.tab-bar {
+  display: flex; gap: 4px;
+  background: var(--paper); border-radius: 8px; padding: 3px;
+  margin-bottom: 16px;
+}
+.tab {
+  flex: 1; padding: 7px 12px; text-align: center;
+  font-size: 12px; font-weight: 500; color: var(--ink-lt);
+  border: none; background: none; cursor: pointer;
+  border-radius: 6px; transition: all .15s; font-family: var(--font);
+}
+.tab.active { background: var(--white); color: var(--accent); box-shadow: var(--shadow-sm); }
+
+/* ── Form fields ─────────────────────────────────────────────────────── */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 11px; font-weight: 600; color: var(--ink-lt); text-transform: uppercase; letter-spacing: .04em; }
+.field input, .field select {
+  padding: 9px 12px; border: 1.5px solid var(--border);
+  border-radius: 6px; font-size: 13px; font-family: var(--font);
+  color: var(--ink); background: var(--white);
+  transition: border-color .15s;
+  outline: none;
+}
+.field input:focus, .field select:focus { border-color: var(--accent); }
+.field input::placeholder { color: var(--ink-xlt); }
+.fuzzy-row { display: flex; align-items: center; gap: 10px; }
+.fuzzy-row input[type=range] { flex: 1; }
+.fuzzy-val { font-size: 12px; font-weight: 600; color: var(--accent); min-width: 32px; font-family: var(--mono); }
+
+.form-actions { display: flex; gap: 10px; margin-top: 4px; }
+.btn-search {
+  background: var(--accent);
+  border: none; color: #fff;
+  padding: 10px 24px; border-radius: 7px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: var(--font); transition: background .15s;
+  display: flex; align-items: center; gap: 7px;
+}
+.btn-search:hover { background: var(--accent-dk); }
+.btn-clear {
+  background: none; border: 1.5px solid var(--border);
+  color: var(--ink-lt); padding: 10px 18px; border-radius: 7px;
+  font-size: 13px; cursor: pointer; font-family: var(--font);
+  transition: all .15s;
+}
+.btn-clear:hover { border-color: var(--ink-lt); color: var(--ink); }
+
+/* ── Results ─────────────────────────────────────────────────────────── */
+.results-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.results-meta { font-size: 13px; color: var(--ink-lt); }
+.results-meta strong { color: var(--ink); }
+
+.results-grid { display: flex; flex-direction: column; gap: 8px; }
+
+.record-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color .15s, box-shadow .15s;
+  cursor: pointer;
+}
+.record-card:hover { border-color: var(--accent-b); box-shadow: var(--shadow); }
+
+.record-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.record-name { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
+.record-name-en { font-size: 12px; color: var(--ink-lt); margin-top: 2px; font-family: var(--mono); }
+.badges { display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0; }
+.badge {
+  padding: 3px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 600;
+}
+.badge-ref { background: var(--purple-lt); color: var(--purple); font-family: var(--mono); }
+.badge-conf-high { background: var(--green-lt); color: var(--green); }
+.badge-conf-med  { background: var(--amber-lt); color: var(--amber); }
+.badge-conf-low  { background: var(--red-lt); color: var(--red); }
+.badge-score { background: var(--accent-lt); color: var(--accent); }
+.badge-lang  { background: var(--paper); color: var(--ink-lt); border: 1px solid var(--border); }
+
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.record-field { }
+.rf-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-xlt); font-weight: 600; }
+.rf-val   { font-size: 12px; color: var(--ink-md); margin-top: 2px; font-family: var(--mono); }
+.rf-val.na { color: var(--ink-xlt); font-style: italic; font-family: var(--font); }
+
+.relation-line {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--paper-dark);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--ink-lt);
+}
+.rel-type-badge {
+  background: var(--paper-dark); border-radius: 4px;
+  padding: 2px 7px; font-size: 11px; font-weight: 600; color: var(--ink-md);
+}
+
+/* ── Empty/loading states ────────────────────────────────────────────── */
+.state-box {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 12px; padding: 48px 24px;
+  text-align: center; color: var(--ink-lt);
+}
+.state-icon { font-size: 36px; margin-bottom: 12px; }
+.state-title { font-size: 15px; font-weight: 600; color: var(--ink-md); margin-bottom: 6px; }
+.state-hint { font-size: 13px; }
+
+/* ── Pagination ──────────────────────────────────────────────────────── */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.page-btn {
+  width: 34px; height: 34px; border-radius: 7px;
+  border: 1.5px solid var(--border); background: var(--white);
+  cursor: pointer; font-size: 13px; font-family: var(--font);
+  color: var(--ink-md); display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.page-btn:disabled { opacity: .35; cursor: default; }
+
+/* ── Toast ───────────────────────────────────────────────────────────── */
+.toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--ink); color: #fff;
+  padding: 11px 18px; border-radius: 9px;
+  font-size: 13px; font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  animation: toast-in .25s ease;
+  max-width: 320px;
+}
+.toast.success { background: var(--green); }
+.toast.error   { background: var(--red); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* ── Hidden file input ───────────────────────────────────────────────── */
+#file-input { display: none; }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-l">
+    <div class="logo">DP</div>
+    <div>
+      <div class="hdr-title">Document Parser</div>
+      <div class="hdr-sub">PDF extraction &amp; search dashboard</div>
+    </div>
+  </div>
+  <div class="hdr-r">
+    <div class="api-status">
+      <div class="api-dot off" id="api-dot"></div>
+      <span id="api-label">Connecting…</span>
+    </div>
+    <div class="hdr-count" id="hdr-count">— records</div>
+    <button class="btn-upload-hdr" onclick="document.getElementById('file-input').click()">
+      ⬆ Upload PDF
+    </button>
+  </div>
+</header>
+
+<input type="file" id="file-input" accept=".pdf" onchange="handleUpload(this)">
+
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <!-- Stats -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Overview</div>
+      <div class="stat-grid">
+        <div class="stat-card accent">
+          <div class="stat-val" id="stat-total">—</div>
+          <div class="stat-lbl">Total Records</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-sources">—</div>
+          <div class="stat-lbl">Documents</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-ref">—</div>
+          <div class="stat-lbl">With Ref ID</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="stat-langs">—</div>
+          <div class="stat-lbl">Languages</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Upload Document</div>
+      <div class="upload-zone" id="upload-zone"
+           onclick="document.getElementById('file-input').click()"
+           ondragover="event.preventDefault(); this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="event.preventDefault(); this.classList.remove('drag'); handleDrop(event)">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">Drop PDF here or click to browse</div>
+        <div class="upload-hint">Session only — clears on server restart</div>
+      </div>
+      <div class="upload-progress" id="upload-progress">
+        <span id="upload-msg">Uploading &amp; parsing…</span>
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Sources -->
+    <div class="sidebar-section" id="sources-section" style="display:none">
+      <div class="sidebar-label">Loaded Documents</div>
+      <div id="source-list"></div>
+    </div>
+
+  </aside>
+
+  <!-- ── Main ───────────────────────────────────────── -->
+  <main class="main">
+
+    <!-- Search panel -->
+    <div class="search-panel">
+      <div class="tab-bar">
+        <button class="tab active" onclick="switchTab('structured', this)">Structured Search</button>
+        <button class="tab" onclick="switchTab('fuzzy', this)">Fuzzy Name Match</button>
+      </div>
+
+      <!-- Structured search -->
+      <div id="tab-structured">
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="field">
+            <label>Name</label>
+            <input id="s-name" type="text" placeholder="e.g. John Smith">
+          </div>
+          <div class="field">
+            <label>Relation Name</label>
+            <input id="s-relation" type="text" placeholder="e.g. Mary Smith">
+          </div>
+        </div>
+        <div class="form-row triple" style="margin-bottom:12px">
+          <div class="field">
+            <label>Reference ID</label>
+            <input id="s-refid" type="text" placeholder="e.g. AB00123456">
+          </div>
+          <div class="field">
+            <label>Group No</label>
+            <input id="s-group" type="text" placeholder="e.g. 12-4">
+          </div>
+          <div class="field">
+            <label>Document</label>
+            <select id="s-source">
+              <option value="">All documents</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-search" onclick="runSearch()">🔍 Search</button>
+          <button class="btn-clear" onclick="clearSearch('structured')">Clear</button>
+        </div>
+      </div>
+
+      <!-- Fuzzy search -->
+      <div id="tab-fuzzy" style="display:none">
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="field">
+            <label>Name to match</label>
+            <input id="f-name" type="text" placeholder="Type a name (typos OK)">
+          </div>
+          <div class="field">
+            <label>Document filter</label>
+            <select id="f-source">
+              <option value="">All documents</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>Match threshold: <span class="fuzzy-val" id="threshold-label">72</span></label>
+          <div class="fuzzy-row">
+            <input type="range" id="f-threshold" min="40" max="100" value="72"
+                   oninput="document.getElementById('threshold-label').textContent=this.value">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-search" onclick="runFuzzy()">🔍 Find Matches</button>
+          <button class="btn-clear" onclick="clearSearch('fuzzy')">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div>
+      <div class="results-header" style="margin-bottom:12px">
+        <div class="results-meta" id="results-meta"></div>
+      </div>
+      <div id="results-container">
+        <div class="state-box">
+          <div class="state-icon">🗂️</div>
+          <div class="state-title">Ready to search</div>
+          <div class="state-hint">Upload a PDF or run a search to see parsed records.</div>
+        </div>
+      </div>
+      <div id="pagination" style="margin-top:16px"></div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+const API = 'http://localhost:8000';
+let currentMode = 'structured';
+let currentPage = 1;
+let totalPages  = 1;
+let activeSource = '';
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const r = await fetch(`${API}/`);
+    const d = await r.json();
+    document.getElementById('api-dot').classList.remove('off');
+    document.getElementById('api-label').textContent = 'API connected';
+    document.getElementById('hdr-count').textContent = `${d.total_records.toLocaleString()} records`;
+    loadStats();
+    loadSources();
+  } catch {
+    document.getElementById('api-label').textContent = 'API offline';
+  }
+}
+
+async function loadStats() {
+  try {
+    const d = await (await fetch(`${API}/stats`)).json();
+    document.getElementById('stat-total').textContent   = d.total_records.toLocaleString();
+    document.getElementById('stat-sources').textContent = d.sources.length;
+    document.getElementById('stat-ref').textContent     = d.with_reference_id.toLocaleString();
+    const langs = new Set(d.sources.map(s => s.language));
+    document.getElementById('stat-langs').textContent   = langs.size || '—';
+  } catch {}
+}
+
+async function loadSources() {
+  try {
+    const d = await (await fetch(`${API}/sources`)).json();
+    const list = document.getElementById('source-list');
+    const sSelect = document.getElementById('s-source');
+    const fSelect = document.getElementById('f-source');
+
+    // Update dropdowns
+    [sSelect, fSelect].forEach(sel => {
+      while (sel.options.length > 1) sel.remove(1);
+      d.sources.forEach(src => {
+        const opt = new Option(src.file, src.file);
+        sel.add(opt);
+      });
+    });
+
+    if (!d.sources.length) {
+      document.getElementById('sources-section').style.display = 'none';
+      return;
+    }
+    document.getElementById('sources-section').style.display = 'block';
+    list.innerHTML = d.sources.map(src => `
+      <div class="source-item ${activeSource === src.file ? 'active' : ''}"
+           onclick="filterBySource('${src.file}')">
+        <div class="source-dot"></div>
+        <div class="source-name" title="${src.file}">${src.file}</div>
+        <div class="source-count">${src.records.toLocaleString()}</div>
+        ${!d.sources.find(s => s.file === src.file && BASE_DOCUMENTS && BASE_DOCUMENTS.includes(src.file))
+          ? `<button class="source-rm" title="Remove" onclick="event.stopPropagation(); removeSource('${src.file}')">✕</button>`
+          : ''}
+      </div>
+    `).join('');
+  } catch {}
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(mode, btn) {
+  currentMode = mode;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-structured').style.display = mode === 'structured' ? '' : 'none';
+  document.getElementById('tab-fuzzy').style.display = mode === 'fuzzy' ? '' : 'none';
+}
+
+// ── Search ─────────────────────────────────────────────────────────────────
+async function runSearch(page = 1) {
+  currentPage = page;
+  const params = new URLSearchParams({ page, page_size: 20 });
+  const name   = document.getElementById('s-name').value.trim();
+  const rel    = document.getElementById('s-relation').value.trim();
+  const refid  = document.getElementById('s-refid').value.trim();
+  const group  = document.getElementById('s-group').value.trim();
+  const source = document.getElementById('s-source').value;
+
+  if (name)   params.set('name', name);
+  if (rel)    params.set('relation', rel);
+  if (refid)  params.set('reference_id', refid);
+  if (group)  params.set('group_no', group);
+  if (source) params.set('pdf_source', source);
+  if (activeSource && !source) params.set('pdf_source', activeSource);
+
+  showLoading();
+  try {
+    const d = await (await fetch(`${API}/search?${params}`)).json();
+    totalPages = d.total_pages;
+    renderResults(d.results, d.total_results, 'structured', d);
+  } catch (e) {
+    showError('Search failed. Is the API running?');
+  }
+}
+
+async function runFuzzy(page = 1) {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { showToast('Enter a name to search', 'error'); return; }
+  const threshold = document.getElementById('f-threshold').value;
+  const source    = document.getElementById('f-source').value || activeSource;
+  const params    = new URLSearchParams({ name, threshold, limit: 30 });
+  if (source) params.set('pdf_source', source);
+
+  showLoading();
+  try {
+    const d = await (await fetch(`${API}/fuzzy?${params}`)).json();
+    renderFuzzyResults(d);
+  } catch {
+    showError('Fuzzy search failed.');
+  }
+}
+
+function filterBySource(src) {
+  activeSource = activeSource === src ? '' : src;
+  loadSources();
+  if (currentMode === 'fuzzy') runFuzzy();
+  else runSearch();
+}
+
+function clearSearch(mode) {
+  if (mode === 'structured') {
+    ['s-name','s-relation','s-refid','s-group'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('s-source').value = '';
+  } else {
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-source').value = '';
+    document.getElementById('f-threshold').value = 72;
+    document.getElementById('threshold-label').textContent = 72;
+  }
+  activeSource = '';
+  loadSources();
+  document.getElementById('results-container').innerHTML = `
+    <div class="state-box">
+      <div class="state-icon">🗂️</div>
+      <div class="state-title">Ready to search</div>
+      <div class="state-hint">Upload a PDF or run a search to see parsed records.</div>
+    </div>`;
+  document.getElementById('results-meta').textContent = '';
+  document.getElementById('pagination').innerHTML = '';
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function renderResults(records, total, mode, meta = {}) {
+  const container = document.getElementById('results-container');
+  const metaEl    = document.getElementById('results-meta');
+
+  if (!records.length) {
+    container.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">No results</div><div class="state-hint">Try adjusting your search terms.</div></div>`;
+    metaEl.innerHTML = '';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  metaEl.innerHTML = `Found <strong>${total.toLocaleString()}</strong> record${total !== 1 ? 's' : ''}`;
+  if (meta.page) metaEl.innerHTML += ` — page ${meta.page} of ${meta.total_pages}`;
+
+  container.innerHTML = `<div class="results-grid">${records.map(r => recordCard(r)).join('')}</div>`;
+  renderPagination(meta.page, meta.total_pages);
+}
+
+function renderFuzzyResults(data) {
+  const container = document.getElementById('results-container');
+  const metaEl    = document.getElementById('results-meta');
+
+  if (!data.results.length) {
+    container.innerHTML = `<div class="state-box"><div class="state-icon">🔍</div><div class="state-title">No matches above threshold</div><div class="state-hint">Try lowering the match threshold or changing the name.</div></div>`;
+    metaEl.innerHTML = '';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+
+  metaEl.innerHTML = `Found <strong>${data.total_results}</strong> fuzzy match${data.total_results !== 1 ? 'es' : ''} for "<strong>${escHtml(data.query)}</strong>"`;
+  container.innerHTML = `<div class="results-grid">${data.results.map(r => fuzzyCard(r)).join('')}</div>`;
+  document.getElementById('pagination').innerHTML = '';
+}
+
+function recordCard(r) {
+  const conf = r.parse_confidence || 'MEDIUM';
+  const confClass = conf === 'HIGH' ? 'badge-conf-high' : conf === 'LOW' ? 'badge-conf-low' : 'badge-conf-med';
+  const lang = r.language === 'unicode' ? 'Unicode' : 'EN';
+  return `
+    <div class="record-card">
+      <div class="record-top">
+        <div>
+          <div class="record-name">${escHtml(r.primary_name || '—')}</div>
+          ${r.primary_name_en && r.primary_name_en !== r.primary_name
+            ? `<div class="record-name-en">${escHtml(r.primary_name_en)}</div>` : ''}
+        </div>
+        <div class="badges">
+          ${r.reference_id ? `<span class="badge badge-ref">${escHtml(r.reference_id)}</span>` : ''}
+          <span class="badge ${confClass}">${conf}</span>
+          <span class="badge badge-lang">${lang}</span>
+        </div>
+      </div>
+      <div class="record-grid">
+        ${field('Doc ID', r.document_id)}
+        ${field('Seq No', r.sequence_no)}
+        ${field('Section', r.section_no)}
+        ${field('Group', r.group_no)}
+        ${field('Category', r.category)}
+        ${field('Value', r.value)}
+        ${field('Page', r.page_no)}
+        ${field('Source', r.pdf_source ? r.pdf_source.replace('.pdf','') : null)}
+      </div>
+      ${r.relation_name ? `
+        <div class="relation-line">
+          ${r.relation_type ? `<span class="rel-type-badge">${escHtml(r.relation_type)}</span>` : ''}
+          <span>${escHtml(r.relation_name)}</span>
+          ${r.relation_name_en && r.relation_name_en !== r.relation_name
+            ? `<span style="color:var(--ink-xlt)"> · ${escHtml(r.relation_name_en)}</span>` : ''}
+        </div>` : ''}
+    </div>`;
+}
+
+function fuzzyCard(item) {
+  const r = item.record;
+  const conf = r.parse_confidence || 'MEDIUM';
+  const confClass = conf === 'HIGH' ? 'badge-conf-high' : conf === 'LOW' ? 'badge-conf-low' : 'badge-conf-med';
+  return `
+    <div class="record-card">
+      <div class="record-top">
+        <div>
+          <div class="record-name">${escHtml(r.primary_name || '—')}</div>
+          ${r.primary_name_en && r.primary_name_en !== r.primary_name
+            ? `<div class="record-name-en">${escHtml(r.primary_name_en)}</div>` : ''}
+        </div>
+        <div class="badges">
+          <span class="badge badge-score">⚡ ${item.match_score}% · ${escHtml(item.match_on)}</span>
+          ${r.reference_id ? `<span class="badge badge-ref">${escHtml(r.reference_id)}</span>` : ''}
+          <span class="badge ${confClass}">${conf}</span>
+        </div>
+      </div>
+      <div class="record-grid">
+        ${field('Doc ID', r.document_id)}
+        ${field('Group', r.group_no)}
+        ${field('Category', r.category)}
+        ${field('Value', r.value)}
+        ${field('Page', r.page_no)}
+        ${field('Source', r.pdf_source ? r.pdf_source.replace('.pdf','') : null)}
+      </div>
+      ${r.relation_name ? `
+        <div class="relation-line">
+          ${r.relation_type ? `<span class="rel-type-badge">${escHtml(r.relation_type)}</span>` : ''}
+          <span>${escHtml(r.relation_name)}</span>
+        </div>` : ''}
+    </div>`;
+}
+
+function field(label, val) {
+  return `<div class="record-field">
+    <div class="rf-label">${label}</div>
+    <div class="rf-val ${val == null || val === '' ? 'na' : ''}">${val != null && val !== '' ? escHtml(String(val)) : 'n/a'}</div>
+  </div>`;
+}
+
+function renderPagination(page, total) {
+  const el = document.getElementById('pagination');
+  if (total <= 1) { el.innerHTML = ''; return; }
+  const pages = [];
+  pages.push(`<button class="page-btn" onclick="runSearch(${page-1})" ${page<=1?'disabled':''}>‹</button>`);
+  for (let i = Math.max(1,page-2); i <= Math.min(total,page+2); i++) {
+    pages.push(`<button class="page-btn ${i===page?'active':''}" onclick="runSearch(${i})">${i}</button>`);
+  }
+  pages.push(`<button class="page-btn" onclick="runSearch(${page+1})" ${page>=total?'disabled':''}>›</button>`);
+  el.innerHTML = `<div class="pagination">${pages.join('')}</div>`;
+}
+
+// ── Upload ─────────────────────────────────────────────────────────────────
+async function handleUpload(input) {
+  if (!input.files[0]) return;
+  await uploadFile(input.files[0]);
+  input.value = '';
+}
+
+async function handleDrop(e) {
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
+    showToast('Please drop a PDF file', 'error');
+    return;
+  }
+  await uploadFile(file);
+}
+
+async function uploadFile(file) {
+  const prog = document.getElementById('upload-progress');
+  const msg  = document.getElementById('upload-msg');
+  prog.classList.add('show');
+  msg.textContent = `Parsing ${file.name}…`;
+
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const r = await fetch(`${API}/upload`, { method: 'POST', body: form });
+    const d = await r.json();
+    prog.classList.remove('show');
+    if (r.ok) {
+      showToast(`✓ ${d.records_extracted.toLocaleString()} records extracted from ${file.name}`, 'success');
+      loadStats();
+      loadSources();
+      document.getElementById('hdr-count').textContent = `${d.total_in_db.toLocaleString()} records`;
+    } else {
+      showToast(d.detail || 'Upload failed', 'error');
+    }
+  } catch {
+    prog.classList.remove('show');
+    showToast('Upload failed — is the API running?', 'error');
+  }
+}
+
+async function removeSource(filename) {
+  if (!confirm(`Remove all records from "${filename}"?`)) return;
+  try {
+    const r = await fetch(`${API}/documents/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+    const d = await r.json();
+    if (r.ok) {
+      showToast(`Removed ${d.records_removed} records`, 'success');
+      if (activeSource === filename) activeSource = '';
+      loadStats();
+      loadSources();
+    } else {
+      showToast(d.detail || 'Remove failed', 'error');
+    }
+  } catch {
+    showToast('Remove failed', 'error');
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function showLoading() {
+  document.getElementById('results-container').innerHTML = `
+    <div class="state-box">
+      <div class="state-icon">⏳</div>
+      <div class="state-title">Searching…</div>
+    </div>`;
+  document.getElementById('results-meta').textContent = '';
+  document.getElementById('pagination').innerHTML = '';
+}
+
+function showError(msg) {
+  document.getElementById('results-container').innerHTML = `
+    <div class="state-box">
+      <div class="state-icon">⚠️</div>
+      <div class="state-title">${escHtml(msg)}</div>
+    </div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showToast(msg, type = '') {
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// Keyboard shortcut — Enter to search
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.target.matches('button')) {
+    if (currentMode === 'fuzzy') runFuzzy();
+    else runSearch();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
